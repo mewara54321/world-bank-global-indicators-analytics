@@ -23,8 +23,8 @@ countries = data[1]
 countries = pd.DataFrame(countries)
 
 #Save countries raw datasets
-countries.to_csv("../data/raw/countries_raw.csv", index=False)
-print("Countries raw dataset saved")
+#countries.to_csv("../data/raw/countries_raw.csv", index=False)
+#print("Countries raw dataset saved")
 
 #---------------------------------------------Cleaning countries data frame---------------------------------------------
 
@@ -43,46 +43,159 @@ countries.rename(columns = {'iso2Code' : 'country_id'} , inplace = True)
 #print("Countries cleaned dataset saved")
 
 #---------------------------------------------Getting indicators---------------------------------------------
-base_url = "https://api.worldbank.org/v2/indicator?format=json"
-response = requests.get(base_url)
-#print(response.status_code) --> 200 output means request successful
-indicators_data = response.json()
+# base_url = "https://api.worldbank.org/v2/indicator?format=json"
+# response = requests.get(base_url)
+# #print(response.status_code) --> 200 output means request successful
+# indicators_data = response.json()
+#
+# # indicators_data[0] -->meta data
+# #{'page': 1, 'pages': 590, 'per_page': '50', 'total': 29470}
+#
+# #indicators_data[1] -->Actual data
+#
+# all_dfs = []
+# total_pages = indicators_data[0]["pages"]
+# for i in range(1,total_pages+1):
+#     url = f"https://api.worldbank.org/v2/indicator?format=json&per_page=500&page={i}"
+#     response = requests.get(url, timeout=30)
+#
+#     if response.status_code == 200:
+#         data = response.json()
+#
+#         if len(data)<2:
+#             print(f"NO data at page {i}")
+#
+#         indicators = data[1]
+#         df = pd.DataFrame([{"id" : item['id'],
+#                        "name" : item['name']} for item in indicators ])
+#
+#         all_dfs.append(df)
+#         print(f"Page{i}: {len(df)} indicators collected")
+#
+#         time.sleep(0.3)
+#
+#     else :
+#         print(f"Failed to fetch page {i}, status code {response.status_code}")
+#
+#
+# final_df = pd.concat(all_dfs , ignore_index = True)
+# print(final_df)
+#
+# # Save indicator metadata dataset
+# final_df.to_csv("../data/raw/world_bank_indicators_metadata.csv", index=False)
+# print("Indicator metadata saved")
 
-# indicators_data[0] -->meta data
-#{'page': 1, 'pages': 590, 'per_page': '50', 'total': 29470}
 
-#indicators_data[1] -->Actual data
+#---------------------------------------------Getting data with the indicators---------------------------------------------
+indicator_groups = {
+"economic_activity_growth": [
+"NY.GDP.MKTP.KD.ZG", # GDP growth (annual %)
+"NY.GDP.PCAP.CD" # GDP per capita (current US$)
+],
+"labour_market_indicators": [
+"SL.UEM.TOTL.ZS", # Unemployment total
+"SL.UEM.1524.ZS", # Unemployment youth total (ages 15–24)
+"SL.TLF.TOTL.IN" # Labour force, total
+],
+"trade_globalization": [
+"NE.EXP.GNFS.CD", # Exports of goods and services (current US$)
+"NE.IMP.GNFS.CD" # Imports of goods and services (current US$)
+],
+"poverty_inequality": [
+"SI.POV.NAHC", # Poverty headcount ratio at national poverty lines (% of population)
+"SI.POV.GINI" # Gini index (measure of income inequality)
+],
+"environmental_indicators": [
+"EG.FEC.RNEW.ZS", # Renewable energy consumption (% of total final energy consumption)
+"AG.LND.FRST.ZS" # Forest area (% of land area)
+],
+"health_indicators": [
+"SP.DYN.LE00.IN", # Life expectancy at birth
+"SP.DYN.IMRT.IN", # Infant mortality rate
+"SH.H2O.BASW.ZS", # Access to at least basic water services (% of population)
+"SH.XPD.CHEX.GD.ZS", # Current health expenditure (% of GDP)
+"SH.IMM.IDPT", # Immunization, DPT (% of children ages 12–23 months)
+"SH.IMM.MEAS", # Immunization, measles (% of children ages 12–23 months)
+"SH.MMR.RISK.ZS", # Risk of maternal death
+"SH.DTH.COMM.ZS", # Deaths from communicable diseases (% of total)
+"SH.TBS.INCD", # Tuberculosis incidence (per 100,000 people)
+"SH.STA.BRTC.ZS", # Births attended by skilled health staff (%)
+"SH.STA.MMRT", # Maternal mortality ratio (modeled estimate, per 100,000 live births)
+"SP.POP.65UP.TO.ZS", # Population ages 65 and above (% of total population)
+"SH.HIV.INCD.ZS" # HIV incidence rate (per 1,000 uninfected population ages 15–49)
+],
+"technology_indicators": [
+"IT.NET.USER.ZS", # Individuals using the Internet (% of population)
+"IT.CEL.SETS.P2" # Mobile cellular subscriptions (per 100 people)
+]}
 
-all_dfs = []
-total_pages = indicators_data[0]["pages"]
-for i in range(1,total_pages+1):
-    url = f"https://api.worldbank.org/v2/indicator?format=json&per_page=500&page={i}"
-    response = requests.get(url, timeout=30)
+base1_url = "https://api.worldbank.org/countries/all/indicators/{}?format=json&per_page=1000&page={}"
 
-    if response.status_code == 200:
-        data = response.json()
+category_dataframes={}
+for category , indicators in indicator_groups.items():
+    print(f"Fetching information for category: {category}")
+    all_dfs_for_category = []
 
-        if len(data)<2:
-            print(f"NO data at page {i}")
+    for indicator_code in indicators:
+        print(f"Fetching data for indicator: {indicator_code}")
+        page =1
 
-        indicators = data[1]
-        df = pd.DataFrame([{"id" : item['id'],
-                       "name" : item['name']} for item in indicators ])
+        while True:
+            url =base1_url.format(indicator_code, page)
+            response = requests.get(url)
+            if response.status_code != 200:
+                print(f"No data for indicator '{indicator_code}' on page '{page}' ")
 
-        all_dfs.append(df)
-        print(f"Page{i}: {len(df)} indicators collected")
-
-        time.sleep(0.3)
-
-    else :
-        print(f"Failed to fetch page {i}, status code {response.status_code}")
+            data = response.json()
+            if len(data) <2:
+                print(f"Failed at page: {page}")
+                break
 
 
-final_df = pd.concat(all_dfs , ignore_index = True)
-print(final_df)
+            total_pages = data[0]["pages"]
+            record = data[1]
 
-# Save indicator metadata dataset
-final_df.to_csv("../data/raw/world_bank_indicators_metadata.csv", index=False)
-print("Indicator metadata saved")
+            df = pd.json_normalize(record)
+
+            df = df[[
+                "country.id", "country.value", "indicator.id",
+                "indicator.value", "date", "value"
+                ]].rename(columns={
+                "country.id": "country_id",
+                "country.value": "country_value",
+                "indicator.id": "indicator_id",
+                "indicator.value": "indicator_name",
+                "date": "year"})
+
+            df = df[df["year"].astype(int)>2015]
+            all_dfs_for_category.append(df)
+
+
+            if page >= total_pages:
+                break
+            else:
+                page+=1
+                time.sleep(0.3)
+
+
+    if all_dfs_for_category :
+        combined_df = pd.concat(all_dfs_for_category, ignore_index=True)
+        category_dataframes[category] = combined_df
+        print(f"Total rows collected for {category}: {len(combined_df)}")
+
+    else:
+        print(f"No data for category: {category}")
+
+print("Data fetching completed")
+
+indicator_values_df = pd.concat(category_dataframes.values(), ignore_index=True)
+
+indicator_values_df.to_csv(
+    "../data/raw/indicator_values_raw.csv",
+    index=False
+)
+
+print("Indicator values dataset saved")
+
 
 
