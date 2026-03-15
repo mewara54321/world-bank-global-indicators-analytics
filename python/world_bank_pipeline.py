@@ -5,7 +5,6 @@ import time
 
 #---------------------------------------------World bank countries endpoint--------------------------------------------
 url =f"https://api.worldbank.org/countries?format=json&per_page=300"
-
 response = requests.get(url)
 
 # print(response.status_code) --> 200 output means request successful
@@ -23,8 +22,8 @@ countries = data[1]
 countries = pd.DataFrame(countries)
 
 #Save countries raw datasets
-#countries.to_csv("../data/raw/countries_raw.csv", index=False)
-#print("Countries raw dataset saved")
+countries.to_csv("../data/raw/countries_raw.csv", index=False)
+print("Countries raw dataset saved")
 
 #---------------------------------------------Cleaning countries data frame---------------------------------------------
 
@@ -39,51 +38,52 @@ countries.drop(columns = ["adminregion" , "capitalCity"], inplace = True)
 countries.rename(columns = {'iso2Code' : 'country_id'} , inplace = True)
 
 # Save countries processed datasets
-#countries.to_csv("../data/processed/countries_clean.csv", index=False)
-#print("Countries cleaned dataset saved")
+countries.to_csv("../data/processed/countries_clean.csv", index=False)
+print("Countries cleaned dataset saved")
 
-#---------------------------------------------Getting indicators---------------------------------------------
-# base_url = "https://api.worldbank.org/v2/indicator?format=json"
-# response = requests.get(base_url)
-# #print(response.status_code) --> 200 output means request successful
-# indicators_data = response.json()
-#
-# # indicators_data[0] -->meta data
-# #{'page': 1, 'pages': 590, 'per_page': '50', 'total': 29470}
-#
-# #indicators_data[1] -->Actual data
-#
-# all_dfs = []
-# total_pages = indicators_data[0]["pages"]
-# for i in range(1,total_pages+1):
-#     url = f"https://api.worldbank.org/v2/indicator?format=json&per_page=500&page={i}"
-#     response = requests.get(url, timeout=30)
-#
-#     if response.status_code == 200:
-#         data = response.json()
-#
-#         if len(data)<2:
-#             print(f"NO data at page {i}")
-#
-#         indicators = data[1]
-#         df = pd.DataFrame([{"id" : item['id'],
-#                        "name" : item['name']} for item in indicators ])
-#
-#         all_dfs.append(df)
-#         print(f"Page{i}: {len(df)} indicators collected")
-#
-#         time.sleep(0.3)
-#
-#     else :
-#         print(f"Failed to fetch page {i}, status code {response.status_code}")
-#
-#
-# final_df = pd.concat(all_dfs , ignore_index = True)
-# print(final_df)
-#
-# # Save indicator metadata dataset
-# final_df.to_csv("../data/raw/world_bank_indicators_metadata.csv", index=False)
-# print("Indicator metadata saved")
+#---------------------------------------------Getting List of indicators---------------------------------------------
+base_url = "https://api.worldbank.org/v2/indicator?format=json"
+response = requests.get(base_url)
+# print(response.status_code) --> 200 output means request successful
+indicators_data = response.json()
+
+# indicators_data[0] -->meta data
+# {'page': 1, 'pages': 590, 'per_page': '50', 'total': 29470}
+
+# indicators_data[1] -->Actual data
+
+all_dfs = []
+total_pages = indicators_data[0]["pages"]
+for i in range(1,total_pages+1):
+
+    url = f"https://api.worldbank.org/v2/indicator?format=json&per_page=500&page={i}"
+    response = requests.get(url, timeout=30)
+
+    if response.status_code == 200:
+        data = response.json()
+
+        if len(data)<2:
+            print(f"NO data at page {i}")
+
+        indicators = data[1]
+        df = pd.DataFrame([{"id" : item['id'],
+                       "name" : item['name']} for item in indicators ])
+
+        all_dfs.append(df)
+        print(f"Page{i}: {len(df)} indicators collected")
+
+        time.sleep(0.3)
+
+    else :
+        print(f"Failed to fetch page {i}, status code {response.status_code}")
+
+
+final_df = pd.concat(all_dfs , ignore_index = True)
+print(final_df)
+
+# Save indicator metadata dataset
+final_df.to_csv("../data/raw/world_bank_indicators_metadata.csv", index=False)
+print("Indicator metadata saved")
 
 
 #---------------------------------------------Getting data with the indicators---------------------------------------------
@@ -199,3 +199,49 @@ print("Indicator values dataset saved")
 
 
 
+#-----------------------------------Getting different dataframe from each set indicators--------------------------------
+economic_activity = category_dataframes.get("economic_activity_growth" , pd.DataFrame())
+labour_market_jobs = category_dataframes.get("labour_market_indicators" , pd.DataFrame())
+trade_globalization = category_dataframes.get("trade_globalization" , pd.DataFrame())
+poverty_inequality = category_dataframes.get("poverty_inequality" , pd.DataFrame())
+environmental_indicators = category_dataframes.get("environmental_indicators" , pd.DataFrame())
+health_indicators = category_dataframes.get("health_indicators" , pd.DataFrame())
+technology_indicators = category_dataframes.get("technology_indicators" , pd.DataFrame())
+
+
+#-------------------------------------Merge with countries data frame---------------------------------------------------
+economic = pd.merge(economic_activity , countries ,on="country_id" , how="inner")
+labour_market = pd.merge(labour_market_jobs , countries ,on="country_id" , how="inner")
+trade = pd.merge(trade_globalization , countries ,on="country_id" , how="inner")
+poverty = pd.merge(poverty_inequality , countries ,on="country_id" , how="inner")
+environmental = pd.merge(environmental_indicators , countries ,on="country_id" , how="inner")
+health = pd.merge(health_indicators , countries ,on="country_id" , how="inner")
+technology = pd.merge(technology_indicators , countries ,on="country_id" , how="inner")
+
+
+#-------------------------------------Dropping un-necessary columns-----------------------------------------------------
+economic.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+labour_market.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+trade.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+poverty.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+environmental.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+health.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+technology.drop(columns=["indicator_id" , "name" , "id"], inplace=True)
+
+
+
+economic.to_csv("../data/processed/economic_activity.csv", index=False)
+
+labour_market.to_csv("../data/processed/labour_market.csv", index=False)
+
+trade.to_csv("../data/processed/trade_globalization.csv", index=False)
+
+poverty.to_csv("../data/processed/poverty_inequality.csv", index=False)
+
+environmental.to_csv("../data/processed/environmental_indicators.csv", index=False)
+
+health.to_csv("../data/processed/health_indicators.csv", index=False)
+
+technology.to_csv("../data/processed/technology_indicators.csv", index=False)
+
+print("All category datasets saved successfully")
