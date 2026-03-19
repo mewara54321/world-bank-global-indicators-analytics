@@ -145,6 +145,7 @@ for category , indicators in indicator_groups.items():
             response = requests.get(url)
             if response.status_code != 200:
                 print(f"No data for indicator '{indicator_code}' on page '{page}' ")
+                break
 
             data = response.json()
             if len(data) <2:
@@ -165,7 +166,7 @@ for category , indicators in indicator_groups.items():
                 "country.value": "country_value",
                 "indicator.id": "indicator_id",
                 "indicator.value": "indicator_name",
-                "date": "year"})
+                "date": "year"},inplace=True)
 
             df = df[df["year"].astype(int)>2015]
             all_dfs_for_category.append(df)
